@@ -3,6 +3,7 @@ package com.luck.picture.lib.camera;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -10,6 +11,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
+import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -46,6 +48,7 @@ import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.config.PictureSelectionConfig;
 import com.luck.picture.lib.thread.PictureThreadUtils;
 import com.luck.picture.lib.tools.AndroidQTransformUtils;
+import com.luck.picture.lib.tools.BitmapUtils;
 import com.luck.picture.lib.tools.DateUtils;
 import com.luck.picture.lib.tools.MediaUtils;
 import com.luck.picture.lib.tools.PictureFileUtils;
@@ -115,6 +118,31 @@ public class CustomCameraView extends RelativeLayout {
     private long recordTime = 0;
     private File mOutMediaFile;
 
+    OrientationEventListener orientationEventListener = new OrientationEventListener(getContext()) {
+        @Override
+        public void onOrientationChanged(int orientation) {
+            int rotation;
+
+            // Monitors orientation values to determine the target rotation value
+            if (orientation >= 45 && orientation < 135) {
+                rotation = Surface.ROTATION_270;
+            } else if (orientation >= 135 && orientation < 225) {
+                rotation = Surface.ROTATION_180;
+            } else if (orientation >= 225 && orientation < 315) {
+                rotation = Surface.ROTATION_90;
+            } else {
+                rotation = Surface.ROTATION_0;
+            }
+
+            try {
+                mImageCapture.setTargetRotation(rotation);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
+
     private boolean isImageCaptureEnabled() {
         return useCameraCases == LifecycleCameraController.IMAGE_CAPTURE;
     }
@@ -175,7 +203,7 @@ public class CustomCameraView extends RelativeLayout {
                                 .build();
                 mImageCapture.takePicture(fileOptions, ContextCompat.getMainExecutor(getContext()),
                         new MyImageResultCallback(mOutMediaFile,
-                                mImagePreview, mCaptureLayout, mImageCallbackListener, mCameraListener));
+                                mImagePreview, mCaptureLayout, mImageCallbackListener, mCameraListener, lensFacing == CameraSelector.LENS_FACING_FRONT,mImageCapture.getTargetRotation()));
             }
 
             @Override
@@ -340,6 +368,14 @@ public class CustomCameraView extends RelativeLayout {
         }
     }
 
+    public void orientationEnable() {
+        orientationEventListener.enable();
+    }
+
+    public void orientationDisable() {
+        orientationEventListener.disable();
+    }
+
     /**
      * 初始相机图片
      */
@@ -356,7 +392,7 @@ public class CustomCameraView extends RelativeLayout {
      */
     private void bindCameraImageUseCases() {
         try {
-            int screenAspectRatio = aspectRatio(ScreenUtils.getScreenWidth(getContext()), ScreenUtils.getScreenHeight(getContext()));
+            int screenAspectRatio = aspectRatio(ScreenUtils.getScreenWidth2(getContext()), ScreenUtils.getScreenHeight2(getContext()));
             CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(lensFacing).build();
             // Preview
             Preview preview = new Preview.Builder()
@@ -429,17 +465,21 @@ public class CustomCameraView extends RelativeLayout {
         private final WeakReference<CaptureLayout> mCaptureLayoutReference;
         private final WeakReference<ImageCallbackListener> mImageCallbackListenerReference;
         private final WeakReference<CameraListener> mCameraListenerReference;
+        private final WeakReference<Boolean> mIsFrontReference;
+        private final WeakReference<Integer> mRotationReference;
 
         public MyImageResultCallback(
                 File imageOutFile, ImageView imagePreview,
                 CaptureLayout captureLayout, ImageCallbackListener imageCallbackListener,
-                CameraListener cameraListener) {
+                CameraListener cameraListener, Boolean front, int rotation) {
             super();
             this.mFileReference = new WeakReference<>(imageOutFile);
             this.mImagePreviewReference = new WeakReference<>(imagePreview);
             this.mCaptureLayoutReference = new WeakReference<>(captureLayout);
             this.mImageCallbackListenerReference = new WeakReference<>(imageCallbackListener);
             this.mCameraListenerReference = new WeakReference<>(cameraListener);
+            this.mIsFrontReference = new WeakReference<>(front);
+            this.mRotationReference = new WeakReference<>(rotation);
         }
 
         @Override
@@ -447,7 +487,10 @@ public class CustomCameraView extends RelativeLayout {
             if (mCaptureLayoutReference.get() != null) {
                 mCaptureLayoutReference.get().setButtonCaptureEnabled(true);
             }
-            if (mImageCallbackListenerReference.get() != null && mFileReference.get() != null && mImagePreviewReference.get() != null) {
+            if (mImageCallbackListenerReference.get() != null && mFileReference.get() != null && mImagePreviewReference.get() != null && mIsFrontReference.get() != null && mRotationReference.get() != null) {
+                //cut
+                Bitmap bitmap = BitmapUtils.bitmapClip(mImagePreviewReference.get().getContext(), mFileReference.get().getAbsolutePath(), mIsFrontReference.get(), mRotationReference.get());
+                BitmapUtils.saveBitmapFile(bitmap, mFileReference.get());
                 mImageCallbackListenerReference.get().onLoadImage(mFileReference.get(), mImagePreviewReference.get());
             }
             if (mImagePreviewReference.get() != null) {
@@ -467,6 +510,8 @@ public class CustomCameraView extends RelativeLayout {
                 mCameraListenerReference.get().onError(exception.getImageCaptureError(), exception.getMessage(), exception.getCause());
             }
         }
+
+
     }
 
     private final TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {

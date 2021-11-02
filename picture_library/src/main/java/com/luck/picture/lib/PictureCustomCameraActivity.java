@@ -45,6 +45,11 @@ public class PictureCustomCameraActivity extends PictureSelectorCameraEmptyActiv
     }
 
     @Override
+    public boolean isRequestedOrientation() {
+        return false;
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS, WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
@@ -112,6 +117,13 @@ public class PictureCustomCameraActivity extends PictureSelectorCameraEmptyActiv
             }
             isEnterSetting = false;
         }
+        mCameraView.orientationEnable();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mCameraView.orientationDisable();
     }
 
     /**

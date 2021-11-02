@@ -30,6 +30,14 @@ public class ScreenUtils {
         return localDisplayMetrics.heightPixels - getStatusBarHeight(context);
     }
 
+    public static int getScreenWidth2(Context context) {
+        return context.getResources().getDisplayMetrics().widthPixels;
+    }
+
+    public static int getScreenHeight2(Context context) {
+        return context.getResources().getDisplayMetrics().heightPixels;
+    }
+
     /**
      * 获取状态栏高度
      */
